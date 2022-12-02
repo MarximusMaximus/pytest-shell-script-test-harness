@@ -53,7 +53,7 @@ jobs:
 
       - name: Checkout Repo
         id: checkout-repo
-        uses: actions/checkout@v3.0.2
+        uses: actions/checkout@v3.1.0
 
       - name: batteries-forking-included
         id: batteries-forking-included
@@ -256,7 +256,7 @@ jobs:
 
       - name: Checkout Repo
         id: checkout-repo
-        uses: actions/checkout@v3.0.2
+        uses: actions/checkout@v3.1.0
 
       - name: Override Python Version For Work Env
         id: override-python-version
@@ -326,7 +326,7 @@ jobs:
 
       - name: Checkout Repo
         id: checkout-repo
-        uses: actions/checkout@v3.0.2
+        uses: actions/checkout@v3.1.0
 
       - name: batteries-forking-included
         id: batteries-forking-included
@@ -415,7 +415,7 @@ jobs:
 
       - name: Checkout Repo
         id: checkout-repo
-        uses: actions/checkout@v3.0.2
+        uses: actions/checkout@v3.1.0
 
       - name: batteries-forking-included
         id: batteries-forking-included
