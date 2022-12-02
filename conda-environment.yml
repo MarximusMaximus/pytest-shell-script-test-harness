@@ -1,0 +1,14 @@
+channels:
+  - nodefaults
+  - conda-forge
+dependencies:
+  - python<3.11
+  - git
+  - make
+  - pip
+  - wheel
+  - setuptools
+  - perl
+  - shellcheck
+  - pip:
+    - poetry>=1.2.0
