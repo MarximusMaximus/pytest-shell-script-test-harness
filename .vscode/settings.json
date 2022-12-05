@@ -53,6 +53,7 @@
         "numcollected",
         "pipefail",
         "posix",
+        "postamble",
         "prevline",
         "printenv",
         "psutil",
