@@ -168,7 +168,7 @@ jobs:
             shell: "wsl-sh {0}"
           - os: windows_ubuntu-latest-x64
             os-image: windows-latest
-            windows-wsl: Ubuntu-20.04
+            windows-wsl: Ubuntu-22.04
             shell: "wsl-sh {0}"
           - os: windows_opensuse-latest-x64
             os-image: windows-latest
