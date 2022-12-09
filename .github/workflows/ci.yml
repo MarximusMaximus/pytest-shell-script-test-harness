@@ -126,16 +126,30 @@ jobs:
 
           # set vars for tox-env
           - py-env: py38
+            py-style: wheel
             python-version: "3.8"
+            tox-env: py38-wheel
           - py-env: py39
+            py-style: wheel
             python-version: "3.9"
+            tox-env: py39-wheel
           - py-env: py310
+            py-style: wheel
             python-version: "3.10"
+            tox-env: py310-wheel
 
-          - py-style: wheel
-            tox-env: ${{ py-env }}-wheel
-          - py-style: sdist
-            tox-env: ${{ py-env }}-sdist
+          - py-env: py38
+            py-style: sdist
+            python-version: "3.8"
+            tox-env: py38-sdist
+          - py-env: py39
+            py-style: sdist
+            python-version: "3.9"
+            tox-env: py39-sdist
+          - py-env: py310
+            py-style: sdist
+            python-version: "3.10"
+            tox-env: py310-sdist
 
           # set vars for os & conda-forge
           - os: ubuntu-latest-x64
