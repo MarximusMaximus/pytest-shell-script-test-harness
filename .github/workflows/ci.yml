@@ -133,9 +133,9 @@ jobs:
             python-version: "3.10"
 
           - py-style: wheel
-            tox-env: ${{ matrix.py-env }}-wheel
+            tox-env: ${{ py-env }}-wheel
           - py-style: sdist
-            tox-env: ${{ matrix.py-env }}-sdist
+            tox-env: ${{ py-env }}-sdist
 
           # set vars for os & conda-forge
           - os: ubuntu-latest-x64
