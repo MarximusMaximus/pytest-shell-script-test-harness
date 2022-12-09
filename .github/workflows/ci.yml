@@ -114,19 +114,19 @@ jobs:
           # create additional matrix entries for ubuntu & tox_env
           - py-env: py310
             py-style: lint
-            tox-env: lint
             os: ubuntu-latest-x64
             python-version: "3.10"
             os-image: ubuntu-latest
             windows-wsl: not_windows
+            tox-env: lint
             tox-args: --color=always
           - py-env: py310
             py-style: coverage
-            tox-env: coverage
             os: ubuntu-latest-x64
             python-version: "3.10"
             os-image: ubuntu-latest
             windows-wsl: not_windows
+            tox-env: coverage
 
           # set vars for tox-env
           - py-env: py38
@@ -271,9 +271,16 @@ jobs:
           echo OS: ${{ runner.os }}
           echo ARCH: ${{ runner.arch }}
           echo matrix:
-          echo   .os: ${{ matrix.os }}
-          echo   .tox-env: ${{ matrix.tox-env }}
-          echo   .windows-wsl: ${{ matrix.windows-wsl }}
+          echo   Dimensions:
+          echo     .os: ${{ matrix.os }}
+          echo     .py-env: ${{ matrix.py-env }}
+          echo     .py-style: ${{ matrix.py-style }}
+          echo   Calculated:
+          echo     .python-version: ${{ matrix.python-version }}
+          echo     .os-image: ${{ matrix.os-image }}
+          echo     .windows-wsl: ${{ matrix.windows-wsl }}
+          echo     .tox-env: ${{ matrix.tox-env }}
+          echo     .tox-args: ${{ matrix.tox-args || "" }}
           echo which git:
           which git
           echo git version:
