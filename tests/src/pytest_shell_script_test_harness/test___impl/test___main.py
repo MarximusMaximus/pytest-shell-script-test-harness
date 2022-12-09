@@ -11,6 +11,9 @@ tests/pytest_shell_script_test_harness/test___impl/test___main.py (pytest-shell-
 #===============================================================================
 #region stdlib
 
+from importlib.metadata import (
+    metadata                        as importlib_metadata_metadata,
+)
 from os import (
     environ                         as os_environ,
 )
@@ -52,9 +55,22 @@ def get_project_python_path() -> str:
     Returns:
         str: project's conda environment's python path
     """
+    print(f"ASDF MODULE_UNDER_TEST.__file__={MODULE_UNDER_TEST.__file__}")
+
+    # check if in site-packages
+    # "asdf/python/site-packages/package/__impl.py" ->
+    # "site-packages"
+    is_in_site_packages = os_path_basename(
+        os_path_dirname(
+            os_path_dirname(
+                MODULE_UNDER_TEST.__file__,
+            ),
+        ),
+    ) == "site-packages"
+
     # "asdf/repo/src/package/__impl.py" ->
     # "repo"
-    repo_name = os_path_basename(
+    repo_name: str = os_path_basename(
         os_path_dirname(
             os_path_dirname(
                 os_path_dirname(
@@ -63,6 +79,11 @@ def get_project_python_path() -> str:
             ),
         ),
     )
+
+    if is_in_site_packages:
+        # get the true package name (as would be used for pip install)
+        m = importlib_metadata_metadata(MODULE_UNDER_TEST.__package__)
+        repo_name = m["name"]
 
     python_path: List[str] = []
     python_path.append(

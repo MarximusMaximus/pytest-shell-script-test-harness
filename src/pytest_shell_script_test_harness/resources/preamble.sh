@@ -2,6 +2,9 @@
 # "$_" undefined in POSIX, we only use it for specific shells
 # shellcheck disable=SC3028
 DOLLAR_UNDER="$_"
+export DOLLAR_UNDER
+
+TEMP_SHELL_SOURCE="./test_shell.sh"
 
 ################################################################################
 #region marximus-shell-extensions Base Preamble
@@ -2667,159 +2670,45 @@ fi
 ################################################################################
 
 ################################################################################
-#region Public *
+#region PytestShellScriptTestHarness Test Preamble
 
 #-------------------------------------------------------------------------------
-public_function() {
-    echo "$*"
-    return "$1"
+assert() {
+    __assert_message=""
+    eval __assert_message='$'$#
+    __assert_test="\"$1\""
+    shift
+    while [ $# -gt 1 ]; do
+        __assert_test="$__assert_test \"$1\""
+        shift
+    done
+    eval
+    eval "$__assert_test"
+    __assert_result="$?"
+    if [ "${__assert_result}" -ne 0 ]; then
+        log_fatal "expected: %s" "$__assert_message"
+        exit 252  # RET_UNIT_TEST_ASSERTION
+    fi
 }
 
-#endregion Public *
-################################################################################
+#-------------------------------------------------------------------------------
+default_inject_monkeypatch() {
+    __main() { return 0; }
+    __sourced_main() { return 0; }
+}
 
-(
-    ############################################################################
-    #region Private *
+#-------------------------------------------------------------------------------
+inject_monkeypatch() {
+    default_inject_monkeypatch
+}
 
-    #===========================================================================
-    #region Private Constants
+#-------------------------------------------------------------------------------
+test_harness_output() {
+    (
+        inner_text="$(command printf -- "$@"; command echo EOL)"
+        log_info_no_prefix "PytestShellScriptTestHarness: %s\n" "${inner_text%EOL}"
+    )
+}
 
-    SET_OMEGA_DEBUG=false
-
-    #endregion Constants
-    #===========================================================================
-
-    #===========================================================================
-    #region Private Globals
-
-    if [ "${OMEGA_DEBUG}" = "all" ]; then
-        log_ultradebug "%s: OMEGA_DEBUG was already 'all', ignoring value of SET_OMEGA_DEBUG ('%s')" "$(get_my_real_basename)" "${SET_OMEGA_DEBUG}"
-    else
-        OMEGA_DEBUG="${SET_OMEGA_DEBUG}"
-        export OMEGA_DEBUG
-        log_ultradebug "%s: SET_OMEGA_DEBUG was '%s', setting OMEGA_DEBUG to same and exporting it." "$(get_my_real_basename)" "${SET_OMEGA_DEBUG}"
-    fi
-
-    #endregion Private Globals
-    #===========================================================================
-
-    #===========================================================================
-    #region Private Functions
-
-    #---------------------------------------------------------------------------
-    private_function() {
-        echo "$*"
-        return "$1"
-    }
-
-    #---------------------------------------------------------------------------
-    __main() {
-        log_ultradebug "$(get_my_real_basename) called with '%s'" "$*"
-        log_fatal "$(get_my_real_basename) should be sourced"
-        return "${RET_ERROR_SCRIPT_WAS_NOT_SOURCED}"
-    }
-
-    #endregion Private Functions
-    #===========================================================================
-
-    __sourced_main() {
-        log_ultradebug "$(get_my_real_basename) called with '%s'" "$*"
-        log_fatal "$(get_my_real_basename) should not be sourced"
-        return "${RET_ERROR_SCRIPT_WAS_SOURCED}"
-    }
-
-    #endregion Private *
-    ############################################################################
-
-    ############################################################################
-    #region Immediate
-
-    if [ "${_IS_UNDER_TEST}" = "true" ]; then
-        type inject_monkeypatch >/dev/null 2>&1
-        monkeypatch_ret=$?
-        if [ $monkeypatch_ret -eq 0 ]; then
-            inject_monkeypatch
-        fi
-    fi
-
-    if \
-        [ "$(array_get_last WAS_SOURCED)" = false ] ||
-        [ "${_CALL_MAIN_ANYWAY}" = true ]
-    then
-        __main "$@"
-        ret=$?
-    else
-        __sourced_main "$@"
-        ret=$?
-    fi
-    exit $ret
-
-    #endregion Immediate
-    ############################################################################
-)
-ret=$?
-
-################################################################################
-#region marximus-shell-extensions Postamble
-
-#===============================================================================
-#region PytestShellScriptTestHarness Postamble
-
-if [ "${_IS_UNDER_TEST}" = "true" ]; then
-    type inject_monkeypatch >/dev/null 2>&1
-    monkeypatch_ret=$?
-    if [ $monkeypatch_ret -eq 0 ]; then
-        call inject_monkeypatch
-    fi
-fi
-
-#endregion PytestShellScriptTestHarness Postamble
-#===============================================================================
-
-#===============================================================================
-#region Announce Ourself Ending
-
-__announce_prefix="Source"
-if [ "$(nullcall array_peek WAS_SOURCED)" = false ]; then
-    __announce_prefix="Invoke"
-fi
-nullcall log_debug "${__announce_prefix} Completed: $(nullcall get_my_real_fullpath) ($$) [$(nullcall get_my_puuid_basename || echo "$0")]"
-unset __announce_prefix
-
-#endregion Announce Ourselves Ending
-#===============================================================================
-
-#===============================================================================
-#region Exit Or Return
-
-# NOTE: we have to return here if we were sourced otherwise we kill the shell
-_THIS_FILE_WAS_SOURCED="$(call array_peek WAS_SOURCED)"
-# If we were the top level include we need to remove ourselves and clean up,
-# otherwise, the invoker/includer will do so via the include_G/invoke functions
-if {
-    [ "$(call array_get_length WAS_SOURCED)" -eq 1 ] &&
-    [ "${_THIS_FILE_WAS_SOURCED}" = true ]
-}; then
-    call array_destroy WAS_SOURCED
-    call array_destroy SHELL_SOURCE
-    call array_destroy SHELL_SOURCE_PUUID
-    if [ "$ZSH_VERSION" != "" ]; then
-        # shellcheck disable=3041
-        set +yx "${__MARXIMUS_SHELL_EXTENSIONS__GLOBAL__OPTIONS_OLD}"
-    else
-        set +x "${__MARXIMUS_SHELL_EXTENSIONS__GLOBAL__OPTIONS_OLD}"
-    fi
-    unset __MARXIMUS_SHELL_EXTENSIONS__GLOBAL__OPTIONS_OLD
-fi
-if [ "${_THIS_FILE_WAS_SOURCED}" = false ]; then
-    exit $ret
-else
-    return $ret
-fi
-
-#endregion Exit Or Return
-#===============================================================================
-
-#endregion marximus-shell-extensions Postamble
+#endregion PytestShellScriptTestHarness Test Preamble
 ################################################################################

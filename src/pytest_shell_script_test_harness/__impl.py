@@ -27,6 +27,7 @@ logger_log = logger.log
 #region stdlib
 
 from os import (
+    chmod                           as os_chmod,
     environ                         as os_environ,
     mkdir                           as os_mkdir,
 )
@@ -123,9 +124,6 @@ def coverage_init(
 ################################################################################
 #region Public Classes
 
-################################################################################
-#region Public Classes
-
 #===============================================================================
 class PytestShellScriptTestHarness:
     """
@@ -137,6 +135,7 @@ class PytestShellScriptTestHarness:
         self,
         mock_repo: str,  # pylint: disable=redefined-outer-name
         request: pytest_FixtureRequest,
+        tmp_path_factory: pytest_TempPathFactory,
     ) -> None:
         """
         Initialize.
@@ -144,6 +143,7 @@ class PytestShellScriptTestHarness:
         super().__init__()
         self.mock_repo = mock_repo
         self.request = request
+        self.tmp_path_factory = tmp_path_factory
 
     #---------------------------------------------------------------------------
     def run(
@@ -168,15 +168,57 @@ class PytestShellScriptTestHarness:
 
         mock_repo_fullpath = self.mock_repo
 
-        # path to script file to run
-        script_path = os_path_join(
+        # path to test script file we are supposed to run
+        original_script_path = os_path_join(
             self.request.node.fspath.dirname,
             f"{self.request.node.fspath.purebasename}.sh",
         )
+        original_script_file = open(original_script_path, "rb")
+        original_script_data = original_script_file.read()
+        original_script_file.close()
+
+        # path to the actual script file we will run
+        tmp_path = self.tmp_path_factory.mktemp(
+            "pytest-shell-script-test-harness",
+        )
+        final_script_path = os_path_join(
+            tmp_path,
+            "test_shell.sh",
+        )
+
+        # build the actual script file we will run
+        out_file = open(final_script_path, "wb")
+
+        preamble_filepath = os_path_join(
+            MY_DIR_FULLPATH,
+            "resources",
+            "preamble.sh",
+        )
+        preamble_file = open(preamble_filepath, "rb")
+        preamble_data = preamble_file.read()
+        preamble_file.close()
+
+        postamble_filepath = os_path_join(
+            MY_DIR_FULLPATH,
+            "resources",
+            "postamble.sh",
+        )
+        postamble_file = open(postamble_filepath, "rb")
+        postamble_data = postamble_file.read()
+        postamble_file.close()
+
+        _ = out_file.write(preamble_data)
+        _ = out_file.write(original_script_data)
+        _ = out_file.write(postamble_data)
+
+        out_file.flush()
+        out_file.close()
+
+        os_chmod(final_script_path, 0o755)  # nosec
 
         # final command line to run
         cmd = [
-            script_path,
+            final_script_path,
             f"{self.request.cls.__name__}__{self.request.function.__name__}",  # type: ignore[reportUnknownMemberType]  # noqa: E501,B950
         ]
         str_additional_args = [str(x) for x in additional_args]
@@ -265,9 +307,13 @@ class PytestShellScriptTestHarness:
 def shell_script_test_harness(
     mock_repo: str,  # pylint: disable=redefined-outer-name
     request: pytest_FixtureRequest,
+    tmp_path_factory: pytest_TempPathFactory,
 ) -> PytestShellScriptTestHarness:
     """
     Fixture wrapper for PytestShellScriptTestHarness.
+
+    Args:
+        tmp_path_factory (pytest_TempPathFactory): pytest tmp_path_factory fixture
 
     Returns:
         PytestShellScriptTestHarness: PytestShellScriptTestHarness instance.
@@ -275,6 +321,7 @@ def shell_script_test_harness(
     return PytestShellScriptTestHarness(
         mock_repo=mock_repo,
         request=request,
+        tmp_path_factory=tmp_path_factory,
     )
 
 #-------------------------------------------------------------------------------
