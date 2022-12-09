@@ -112,13 +112,17 @@ jobs:
         ]
         include:
           # create additional matrix entries for ubuntu & tox_env
-          - tox-env: lint
+          - py-env: py310
+            py-style: lint
+            tox-env: lint
             os: ubuntu-latest-x64
             python-version: "3.10"
             os-image: ubuntu-latest
             windows-wsl: not_windows
             tox-args: --color=always
-          - tox-env: coverage
+          - py-env: py310
+            py-style: coverage
+            tox-env: coverage
             os: ubuntu-latest-x64
             python-version: "3.10"
             os-image: ubuntu-latest
