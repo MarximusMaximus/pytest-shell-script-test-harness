@@ -25,10 +25,18 @@ classifiers = [
 ]
 packages = [
     { include = "pytest_shell_script_test_harness", from="src" },
+    # { include = "tests", format="sdist"},
+    # { include = "CHANGELOG.rst", format="sdist"},
+    # { include = "LICENSE", format="sdist"},
 ]
 include = [
-    "CHANGELOG.rst",
-    "tests",
+    # { path = "LICENSE", format="sdist"},
+    # { path = "CHANGELOG.rst", format="sdist"},
+#     "CHANGELOG.rst",
+#     "tests",
+#     "pyproject.toml",
+#     "LICENSE",
+#     "src/pytest_shell_script_test_harness/resources",
 ]
 
 [tool.poetry.urls]
@@ -54,7 +62,7 @@ packaging = ">1"
 "pytest-shell-script-test-harness" = "pytest_shell_script_test_harness"
 
 [tool.poetry.group.dev.dependencies]
-pytest-cov = "^3.0.0"
+pytest-cov = "4.0.0"
 pipdeptree = "^2.2.1"
 tox = "^3.25.0"
 pytest-sugar = "^0.9.4"
