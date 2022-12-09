@@ -280,7 +280,7 @@ jobs:
           echo     .os-image: ${{ matrix.os-image }}
           echo     .windows-wsl: ${{ matrix.windows-wsl }}
           echo     .tox-env: ${{ matrix.tox-env }}
-          echo     .tox-args: ${{ matrix.tox-args || "" }}
+          echo     .tox-args: ${{ matrix.tox-args || '' }}
           echo which git:
           which git
           echo git version:
