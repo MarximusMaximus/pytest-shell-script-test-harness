@@ -80,7 +80,7 @@ def get_project_python_path() -> str:
         ),
     )
 
-    if is_in_site_packages:
+    if is_in_site_packages:  # pragma: no cover
         # get the true package name (as would be used for pip install)
         m = importlib_metadata_metadata(MODULE_UNDER_TEST.__package__)
         repo_name = m["name"]
