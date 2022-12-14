@@ -37,6 +37,7 @@ from os.path import (
     dirname                         as os_path_dirname,
     exists                          as os_path_exists,
     join                            as os_path_join,
+    sep                             as os_path_sep,
 )
 from platform import (
     uname                           as platform_uname,
@@ -356,23 +357,35 @@ def mock_repo(
     tempdir = tmp_path_factory.mktemp(node_safe_name, numbered=True)
     monkeypatch.chdir(tempdir)
 
-    # "asdf/repo/src/mod/__impl.py" ->
-    # "asdf/repo/src"
-    repo_src_fullpath = os_path_dirname(
-        os_path_dirname(
-            __file__,
-        ),
+    # "a.b.c.d" ->
+    # 4
+    subfolder_depth = len(request.module.__name__.split("."))  # type: ignore[reportUnknownMemberType]  # noqa: E501,B950
+    # "/path/to/repo/a/b/c/d" ->
+    # "/path/to/repo"
+    repo_fullpath = os_path_join(
+        "/",
+        *request.module.__file__.split(os_path_sep)[:(-1 * subfolder_depth)]  # type: ignore[reportUnknownArgumentType]  # noqa: E501,B950
     )
 
-    # "asdf/repo/src" ->
+    # "/path/to/repo" ->
     # "repo"
-    repo_name = os_path_basename(
-        os_path_dirname(
-            repo_src_fullpath,
-        ),
+    repo_name = os_path_basename(repo_fullpath)
+
+    # "/path/to/repo" ->
+    # "/path/to/repo/src"
+    repo_src_fullpath = os_path_join(
+        repo_fullpath,
+        "src",
     )
 
-    mock_repo_fullpath = os_path_abspath(repo_name)
+    # "/path/to/repo" ->
+    # "/path/to/repo/bin"
+    repo_bin_fullpath = os_path_join(
+        repo_fullpath,
+        "bin",
+    )
+
+    mock_repo_fullpath: str = os_path_abspath(repo_name)
 
     os_mkdir(mock_repo_fullpath)
     monkeypatch.chdir(mock_repo_fullpath)
@@ -391,11 +404,28 @@ def mock_repo(
         mock_repo_fullpath,
         "src",
     )
-    shutil_copytree(
-        repo_src_fullpath,
-        mock_src_fullpath,
-        dirs_exist_ok=True,
+    if os_path_exists(repo_src_fullpath):
+        shutil_copytree(
+            repo_src_fullpath,
+            mock_src_fullpath,
+            dirs_exist_ok=True,
+            symlinks=True,
+            ignore_dangling_symlinks=True,
+        )
+
+    # copy src/** into mock repo
+    mock_bin_fullpath = os_path_join(
+        mock_repo_fullpath,
+        "bin",
     )
+    if os_path_exists(repo_bin_fullpath):
+        shutil_copytree(
+            repo_bin_fullpath,
+            mock_bin_fullpath,
+            symlinks=True,
+            ignore_dangling_symlinks=True,
+            dirs_exist_ok=True,
+        )
 
     # copy the test .sh into mock repo
     shell_harness_path = os_path_join(
