@@ -44,9 +44,9 @@ from platform import (
 )
 from shlex import (
     join                            as shlex_join,
+    quote                           as shlex_quote,
 )
 from shutil import (
-    copy2                           as shutil_copy2,
     copytree                        as shutil_copytree,
 )
 from subprocess import (  # noqa: F401  # nosec
@@ -151,6 +151,7 @@ class PytestShellScriptTestHarness:
         self,
         additional_args: Optional[List[Union[str, int]]] = None,
         additional_env_vars: Optional[Dict[str, Optional[str]]] = None,
+        use_bfi_run: bool = True,
     ) -> "subprocess_CompletedProcess[bytes]":
         """
         Call the matching shell func in .sh file with same name as this .py file.
@@ -169,6 +170,57 @@ class PytestShellScriptTestHarness:
 
         mock_repo_fullpath = self.mock_repo
 
+        export_filepath = os_path_join(
+            mock_repo_fullpath,
+            "_pssth-exports.sh",
+        )
+        # mock repo project's run.sh
+        run_sh_fullpath = os_path_join(
+            mock_repo_fullpath,
+            "run.sh",
+        )
+        # path to the actual script file we will run
+        final_script_path = os_path_join(
+            mock_repo_fullpath,
+            "_pssth-test.sh",
+        )
+
+        # pass along our entire environment + OMEGA_DEBUG=all
+        env: Dict[str, Any] = {}
+        k: str
+        v: Optional[str]
+        for k, v in os_environ.items():
+            env[k] = v
+        env["OMEGA_DEBUG"] = "all"
+        env["NO_COLOR"] = "true"
+        env["_PSSTH"] = "true"
+        env["_PSSTH_EXECUTOR"] = final_script_path
+        env["DO_SET_X_RUN"] = "true"
+        if os_path_exists(run_sh_fullpath) and use_bfi_run:
+            env["_PSSTH_EXECUTOR"] = run_sh_fullpath
+        for k, v in additional_env_vars.items():
+            env[k] = v
+
+        quoted_env: List[str] = []
+        for k, v in env.items():
+            if v is not None:
+                quoted_env.append(f"{k}={shlex_quote(str(v))}")
+                quoted_env.append(f"export {k}")
+            else:
+                quoted_env.append(f"unset {k}")
+
+        quoted_env_str = "\n".join(quoted_env)
+
+        # write out exports data to be sourced by the postamble later
+        export_file = None
+        try:
+            export_file = open(export_filepath, "w", encoding="utf8")
+            _ = export_file.write(quoted_env_str)
+            export_file.flush()
+        finally:
+            if export_file is not None:
+                export_file.close()
+
         # path to test script file we are supposed to run
         original_script_path = os_path_join(
             self.request.node.fspath.dirname,
@@ -177,15 +229,6 @@ class PytestShellScriptTestHarness:
         original_script_file = open(original_script_path, "rb")
         original_script_data = original_script_file.read()
         original_script_file.close()
-
-        # path to the actual script file we will run
-        tmp_path = self.tmp_path_factory.mktemp(
-            "pytest-shell-script-test-harness",
-        )
-        final_script_path = os_path_join(
-            tmp_path,
-            "test_shell.sh",
-        )
 
         # build the actual script file we will run
         out_file = open(final_script_path, "wb")
@@ -217,30 +260,22 @@ class PytestShellScriptTestHarness:
 
         os_chmod(final_script_path, 0o755)  # nosec
 
-        # final command line to run
-        cmd = [
+        # build up command to run
+        cmd: List[str] = []
+
+        if os_path_exists(run_sh_fullpath) and use_bfi_run:
+            cmd.append(run_sh_fullpath)
+
+        cmd.extend([
             final_script_path,
             f"{self.request.cls.__name__}__{self.request.function.__name__}",  # type: ignore[reportUnknownMemberType]  # noqa: E501,B950
-        ]
+        ])
+
         str_additional_args = [str(x) for x in additional_args]
-        cmd.extend(str_additional_args)
+        if str_additional_args:
+            cmd.extend(str_additional_args)
 
         cmd_str = shlex_join(cmd)
-
-        # pass along our entire environment + OMEGA_DEBUG=all
-        env: Dict[str, Any] = {}
-        k: str
-        v: Optional[str]
-        for k, v in os_environ.items():
-            env[k] = v
-        env["OMEGA_DEBUG"] = "all"
-        env["NO_COLOR"] = "true"
-        for k, v in additional_env_vars.items():
-            if v is not None:
-                env[k] = v
-            else:
-                if k in env:
-                    del env[k]
 
         print(f"Running Command:\n{cmd_str}\n")
 
@@ -248,8 +283,11 @@ class PytestShellScriptTestHarness:
             cmd_str,
             capture_output=True,
             cwd=mock_repo_fullpath,
-            env=env,
             shell=True,  # nosec
+            env={
+                "OMEGA_DEBUG": "all",
+                # "DO_SET_X_RUN": "true",
+            },
         )
 
         print(f"\nRaw stdout bytes:\n{repr(p.stdout)}\n")
@@ -364,79 +402,87 @@ def mock_repo(
     # "/path/to/repo"
     repo_fullpath = os_path_join(
         "/",
-        *request.module.__file__.split(os_path_sep)[:(-1 * subfolder_depth)]  # type: ignore[reportUnknownArgumentType]  # noqa: E501,B950
+        *request.module.__file__.split(os_path_sep)[:(-1 * subfolder_depth)],  # type: ignore[reportUnknownArgumentType]  # noqa: E501,B950
     )
 
     # "/path/to/repo" ->
     # "repo"
     repo_name = os_path_basename(repo_fullpath)
 
-    # "/path/to/repo" ->
-    # "/path/to/repo/src"
-    repo_src_fullpath = os_path_join(
-        repo_fullpath,
-        "src",
-    )
+    # # "/path/to/repo" ->
+    # # "/path/to/repo/src"
+    # repo_src_fullpath = os_path_join(
+    #     repo_fullpath,
+    #     "src",
+    # )
 
-    # "/path/to/repo" ->
-    # "/path/to/repo/bin"
-    repo_bin_fullpath = os_path_join(
-        repo_fullpath,
-        "bin",
-    )
+    # # "/path/to/repo" ->
+    # # "/path/to/repo/bin"
+    # repo_bin_fullpath = os_path_join(
+    #     repo_fullpath,
+    #     "bin",
+    # )
 
     mock_repo_fullpath: str = os_path_abspath(repo_name)
 
     os_mkdir(mock_repo_fullpath)
     monkeypatch.chdir(mock_repo_fullpath)
 
-    # write a pyproject.toml for the mock repo
-    with open("pyproject.toml", "w", encoding="utf-8") as f:
-        _ = f.write("""\
-                name = "template_project"
-                version = "0.0.0"
-                description = "A template project."
-            """)
-        f.flush()
+    # # write a pyproject.toml for the mock repo
+    # with open("pyproject.toml", "w", encoding="utf-8") as f:
+    #     _ = f.write("""\
+    #             name = "template_project"
+    #             version = "0.0.0"
+    #             description = "A template project."
+    #         """)
+    #     f.flush()
 
-    # copy src/** into mock repo
-    mock_src_fullpath = os_path_join(
+    # # copy src/** into mock repo
+    # mock_src_fullpath = os_path_join(
+    #     mock_repo_fullpath,
+    #     "src",
+    # )
+    # if os_path_exists(repo_src_fullpath):
+    #     shutil_copytree(
+    #         repo_src_fullpath,
+    #         mock_src_fullpath,
+    #         dirs_exist_ok=True,
+    #         symlinks=True,
+    #         ignore_dangling_symlinks=True,
+    #     )
+
+    # # copy src/** into mock repo
+    # mock_bin_fullpath = os_path_join(
+    #     mock_repo_fullpath,
+    #     "bin",
+    # )
+    # if os_path_exists(repo_bin_fullpath):
+    #     shutil_copytree(
+    #         repo_bin_fullpath,
+    #         mock_bin_fullpath,
+    #         symlinks=True,
+    #         ignore_dangling_symlinks=True,
+    #         dirs_exist_ok=True,
+    #     )
+
+    shutil_copytree(
+        repo_fullpath,
         mock_repo_fullpath,
-        "src",
+        symlinks=True,
+        ignore_dangling_symlinks=True,
+        dirs_exist_ok=True,
     )
-    if os_path_exists(repo_src_fullpath):
-        shutil_copytree(
-            repo_src_fullpath,
-            mock_src_fullpath,
-            dirs_exist_ok=True,
-            symlinks=True,
-            ignore_dangling_symlinks=True,
-        )
 
-    # copy src/** into mock repo
-    mock_bin_fullpath = os_path_join(
-        mock_repo_fullpath,
-        "bin",
-    )
-    if os_path_exists(repo_bin_fullpath):
-        shutil_copytree(
-            repo_bin_fullpath,
-            mock_bin_fullpath,
-            symlinks=True,
-            ignore_dangling_symlinks=True,
-            dirs_exist_ok=True,
-        )
-
-    # copy the test .sh into mock repo
-    shell_harness_path = os_path_join(
-        request.node.fspath.dirname,
-        f"{request.node.fspath.purebasename}.sh",
-    )
-    if os_path_exists(shell_harness_path):  # pragma: no branch
-        shutil_copy2(
-            shell_harness_path,
-            mock_repo_fullpath,
-        )
+    # # copy the test .sh into mock repo
+    # shell_harness_path = os_path_join(
+    #     request.node.fspath.dirname,
+    #     f"{request.node.fspath.purebasename}.sh",
+    # )
+    # if os_path_exists(shell_harness_path):  # pragma: no branch
+    #     shutil_copy2(
+    #         shell_harness_path,
+    #         mock_repo_fullpath,
+    #     )
 
     return mock_repo_fullpath
 

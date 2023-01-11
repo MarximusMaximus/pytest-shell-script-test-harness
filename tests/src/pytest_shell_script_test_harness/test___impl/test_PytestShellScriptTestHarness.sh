@@ -1,4 +1,7 @@
 #!/usr/bin/env sh
+# shellcheck disable=SC2317
+# disable shellcheck checking for unreachable code, b/c it doesn't understand
+# pytest-shell-script-test-harness calling convention
 
 ################################################################################
 #region Tests
@@ -94,10 +97,12 @@ Test_PytestShellScriptTestHarness__run__test_PytestShellScriptTestHarness__run__
 #-------------------------------------------------------------------------------
 Test_PytestShellScriptTestHarness__run__test_PytestShellScriptTestHarness__run__shell___main() {
     (
-        _CALL_MAIN_ANYWAY=true
-        export _CALL_MAIN_ANYWAY
-
-        inject_monkeypatch() { true; }
+        inject_monkeypatch() {
+            def; __sourced_main() {
+                __main "$@"
+                return $?
+            }
+        }
 
         include_G ./example_shell_script.sh "$@"
         script_ret=$?
@@ -109,8 +114,14 @@ Test_PytestShellScriptTestHarness__run__test_PytestShellScriptTestHarness__run__
 #-------------------------------------------------------------------------------
 Test_PytestShellScriptTestHarness__run__test_PytestShellScriptTestHarness__run__shell___main_overridden() {
     (
-        _CALL_MAIN_ANYWAY=true
-        export _CALL_MAIN_ANYWAY
+        inject_monkeypatch() {
+            default_inject_monkeypatch
+
+            def; __sourced_main() {
+                __main "$@"
+                return $?
+            }
+        }
 
         include_G ./example_shell_script.sh "$@"
         script_ret=$?
@@ -122,13 +133,15 @@ Test_PytestShellScriptTestHarness__run__test_PytestShellScriptTestHarness__run__
 #-------------------------------------------------------------------------------
 Test_PytestShellScriptTestHarness__run__test_PytestShellScriptTestHarness__run__shell___main_overridden_custom() {
     (
-        _CALL_MAIN_ANYWAY=true
-        export _CALL_MAIN_ANYWAY
-
         inject_monkeypatch() {
-            __main() {
+            def; __main() {
                 test_harness_output "manually overridden __main was called"
                 return 0
+            }
+
+            def; __sourced_main() {
+                __main "$@"
+                return $?
             }
         }
 
@@ -287,7 +300,7 @@ Test_PytestShellScriptTestHarness__run__test_PytestShellScriptTestHarness__run__
             __sourced_main() {
                 private_function 0 "$@"
                 ret=$?
-                return $ret
+                return "$ret"
             }
         }
 
@@ -312,7 +325,7 @@ Test_PytestShellScriptTestHarness__run__test_PytestShellScriptTestHarness__run__
             __sourced_main() {
                 private_function 0 "$@"
                 ret=$?
-                return $ret
+                return "$ret"
             }
         }
 
@@ -342,7 +355,7 @@ Test_PytestShellScriptTestHarness__run__test_PytestShellScriptTestHarness__run__
             __sourced_main() {
                 private_function 0 "$@"
                 ret=$?
-                return $ret
+                return "$ret"
             }
         }
 
@@ -372,7 +385,7 @@ Test_PytestShellScriptTestHarness__run__test_PytestShellScriptTestHarness__run__
             __sourced_main() {
                 private_function 0 "$@"
                 ret=$?
-                return $ret
+                return "$ret"
             }
         }
 
